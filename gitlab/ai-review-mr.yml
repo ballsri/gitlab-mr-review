@@ -4,15 +4,6 @@
   variables:
     AI_MODEL: "gemini"
     MODEL_NAME: "gemini-2.5-flash"
-  rules:
-    # Skip if in the template repo itself
-    - if: $CI_PROJECT_PATH == "playground/ai-review-mr"
-      when: never
-    # Run on MR open event for all other repos
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_EVENT_TYPE == "merge_request"
-      when: on_success
-    # Fallback: never run otherwise
-    - when: never
   script:
     - |
       echo "🤖 AI Review: MR !${CI_MERGE_REQUEST_IID} | Model: ${AI_MODEL}/${MODEL_NAME}"
