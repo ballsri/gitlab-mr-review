@@ -1,4 +1,4 @@
-.PHONY: help install install-dev lint delete-comments format check test test-local deploy clean
+.PHONY: help install load-env install-dev delete-comments format test-local deploy
 
 # Colors for output
 BLUE := \033[0;34m
@@ -30,32 +30,12 @@ install-dev: ## Install development dependencies
 
 ## Code Quality targets
 
-lint: ## Run linting (flake8)
-	@echo "$(BLUE)Running linter...$(NC)"
-	flake8 gitlab_mr_review/ --max-line-length=100 --exclude=__pycache__
-	@echo "$(GREEN)✓ Linting complete$(NC)"
-
 format: ## Format code with black
 	@echo "$(BLUE)Formatting code...$(NC)"
 	black gitlab_mr_review/ test_local.py --line-length=100
 	@echo "$(GREEN)✓ Code formatted$(NC)"
 
-check: ## Run all checks (lint + format check + type check)
-	@echo "$(BLUE)Running all checks...$(NC)"
-	@echo "$(YELLOW)1. Format check...$(NC)"
-	black gitlab_mr_review/ test_local.py --check --line-length=100
-	@echo "$(YELLOW)2. Linting...$(NC)"
-	flake8 gitlab_mr_review/ --max-line-length=100 --exclude=__pycache__
-	@echo "$(YELLOW)3. Type checking...$(NC)"
-	mypy gitlab_mr_review/ --ignore-missing-imports
-	@echo "$(GREEN)✓ All checks passed$(NC)"
-
 ## Testing targets
-
-test: ## Run unit tests (pytest)
-	@echo "$(BLUE)Running unit tests...$(NC)"
-	pytest tests/ -v --cov=gitlab_mr_review
-	@echo "$(GREEN)✓ Tests complete$(NC)"
 
 test-local: ## Run local integration test (interactive)
 	@echo "$(BLUE)GitLab MR Review - Local Test$(NC)"
@@ -234,23 +214,6 @@ deploy-digitalocean: ## Deploy to DigitalOcean Functions
 
 ## Utility targets
 
-clean: ## Clean temporary files and caches
-	@echo "$(BLUE)Cleaning temporary files...$(NC)"
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name .mypy_cache -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-	find . -type f -name ".coverage" -delete
-	rm -rf build/ dist/ htmlcov/
-	@echo "$(GREEN)✓ Cleaned$(NC)"
-
-build: ## Build package distribution
-	@echo "$(BLUE)Building package...$(NC)"
-	python -m build
-	@echo "$(GREEN)✓ Package built: dist/$(NC)"
-
 check-env: ## Check environment setup
 	@echo "$(BLUE)Checking environment...$(NC)"
 	@echo ""
@@ -272,6 +235,14 @@ check-env: ## Check environment setup
 	command -v gcloud >/dev/null 2>&1 && echo "  $(GREEN)✓$(NC) gcloud" || echo "  $(YELLOW)○$(NC) gcloud (for GCP deployment)"; \
 	command -v aws >/dev/null 2>&1 && echo "  $(GREEN)✓$(NC) aws" || echo "  $(YELLOW)○$(NC) aws (for AWS deployment)"; \
 	command -v doctl >/dev/null 2>&1 && echo "  $(GREEN)✓$(NC) doctl" || echo "  $(YELLOW)○$(NC) doctl (for DO deployment)"
+
+load-env: ## Print export statements for .env/read.env (source with: source <(make load-env))
+	@if [ ! -f .env ] && [ ! -f read.env ]; then \
+		echo "$(RED)No .env or read.env file found$(NC)" >&2; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Emitting environment exports$(NC)" >&2
+	@python3 scripts/load_env.py
 
 init: ## Initialize project (copy .env.example to .env)
 	@if [ -f .env ]; then \
