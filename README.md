@@ -1,331 +1,145 @@
 # GitLab MR Review
 
-AI-powered code review for GitLab merge requests. Automatically posts inline comments and review summaries using Google Gemini, Anthropic Claude, or OpenAI.
+GitLab MR Review automates merge-request code reviews with AI providers including Google Gemini, Anthropic Claude, and OpenAI. It ingests GitLab MR diffs, produces inline comments plus a summary, and posts them back through the GitLab API. The repository ships with local tooling, metrics, and deployment scripts so you can run the reviewer from your laptop or as a serverless function.
 
-## Quick Start
+## Local development
 
-```bash
-# 1. Setup development environment
-make dev
+### Requirements
 
-# 2. Configure API keys in .env
-export GOOGLE_API_KEY="your-key"
-export GITLAB_TOKEN="your-token"
-
-# 3. Test locally
-make test-local
-
-# 4. Deploy to cloud
-make deploy
-```
-
-## Features
-
-- ✨ **AI-Powered Reviews** - Automated code analysis with Google Gemini (Claude & OpenAI support coming)
-- 💬 **Inline Comments** - Posts feedback directly on specific code lines
-- 📊 **Cost Tracking** - Built-in metrics for API usage and estimated costs
-- ☁️ **Multi-Cloud** - Deploy to GCP, AWS Lambda, or DigitalOcean Functions
-- 🎯 **Smart Filtering** - Automatically excludes lock files and large diffs
-
-## Development
-
-### Prerequisites
-
-- Python 3.8+
-- pip
-- One of: Google Cloud SDK / AWS CLI / doctl (for deployment)
+- Python 3.8 or newer (3.11 matches the managed runtimes used in deployment scripts)
+- `pip` or `uv`
+- Make (for the provided automation targets)
 
 ### Setup
 
 ```bash
-# Clone repository
 git clone <your-repo-url>
 cd gitlab-mr-review
 
-# Install dependencies
-make install-dev
+# Create and activate a virtual environment (optional but recommended)
+python3 -m venv .venv
+source .venv/bin/activate
 
-# Initialize environment
+# Install the package and development tooling
+make dev
+
+# Create `.env` from the template and populate credentials
 make init
+vi .env
 ```
 
-Edit `.env` with your API keys:
-```bash
-GOOGLE_API_KEY=your-google-gemini-api-key
-GITLAB_TOKEN=your-gitlab-token
-```
+### Environment variables
 
-### Makefile Commands
+Define the following in `.env` or export them in your shell before running the reviewer:
 
-#### Installation
-```bash
-make install          # Install production dependencies
-make install-dev      # Install development dependencies
-make init             # Create .env from .env.example
-make dev              # Quick setup (install-dev + init)
-```
+| Variable | Purpose |
+| --- | --- |
+| `GOOGLE_API_KEY` | Google Gemini API key (required unless you only use another provider) |
+| `ANTHROPIC_API_KEY` | Anthropic Claude key (optional) |
+| `OPENAI_API_KEY` | OpenAI API key (optional) |
+| `GITLAB_TOKEN` | GitLab personal access token with `api` scope (required) |
+| `GITLAB_URL` | Optional GitLab instance URL (defaults to `https://gitlab.com`) |
+| `AI_MODEL` | Default provider (`gemini`, `claude`, `openai`), defaults to `gemini` |
 
-#### Code Quality
-```bash
-make format           # Format code with black
-make lint             # Run flake8 linter
-make check            # Run all checks (format + lint + type check)
-```
+### Running reviews locally
 
-#### Testing
-```bash
-make test             # Run unit tests (pytest)
-make test-local       # Run local integration test (interactive prompts)
-make check-env        # Verify environment variables
-```
+Interactive workflow:
 
-#### Deployment
-```bash
-make deploy           # Interactive deployment (choose provider)
-make deploy-gcp       # Deploy to Google Cloud Functions
-make deploy-aws       # Deploy to AWS Lambda
-make deploy-digitalocean  # Deploy to DigitalOcean Functions
-```
-
-#### Utilities
-```bash
-make clean            # Remove temporary files and caches
-make build            # Build package distribution
-make help             # Show all commands
-```
-
-### Local Testing
-
-**Option 1: Interactive (Makefile)**
 ```bash
 make test-local
-# Prompts for: Project ID, MR IID, AI Model, GitLab URL
 ```
 
-**Option 2: Environment Variables**
+You will be prompted for the project ID, MR IID, GitLab URL, and model choice. The script resolves the selected model via the central registry (`gitlab_mr_review.ai_models`) and executes `gitlab_mr_review.main`.
+
+Scripted run (useful for CI or non-interactive environments):
+
 ```bash
-export PROJECT_ID=12345
-export MR_IID=1
-python test_local.py
+python3 scripts/test_local.py \
+  --project-id 12345 \
+  --mr-iid 1 \
+  --ai-model gemini \
+  --model-name gemini-2.5-flash
 ```
 
-**Option 3: CLI Arguments**
+Both paths run the same review pipeline and print the response payload returned by the core reviewer.
+
+### Tests and quality gates
+
 ```bash
-python test_local.py --project-id 12345 --mr-iid 1 --ai-model gemini
+make test        # pytest
+make check       # black --check, flake8, mypy
+make format      # apply black formatting
 ```
 
-### Code Quality
+Manual equivalents:
 
 ```bash
-# Format code
-make format
-
-# Check formatting and lint
-make check
-
-# Run before committing
-make check && make test
+pytest -q --cov=gitlab_mr_review
+black gitlab_mr_review/ scripts/ test_local.py --check
+flake8 gitlab_mr_review/ --max-line-length=100
+mypy gitlab_mr_review/
 ```
 
-## Deployment
+### Makefile reference
 
-### 1. Google Cloud Functions
+| Command | Description |
+| --- | --- |
+| `make dev` | Install editable package and dev dependencies |
+| `make init` | Copy `.env.example` to `.env` |
+| `make check-env` | Print which API keys/tokens are currently configured |
+| `make test-local` | Interactive local review targeting a GitLab MR |
+| `make deploy` | Interactive deploy chooser (GCP / AWS / DigitalOcean) |
+| `make clean` | Remove caches and build artefacts |
+
+## Cloud function deployment
+
+### Google Cloud Functions
+
+#### Prerequisites (GCP)
+
+- `gcloud` CLI installed and authenticated (`gcloud auth login`)
+- Export at least one AI provider key (`GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY`)
+- Optional overrides: `FUNCTION_NAME`, `GCP_REGION`, `MEMORY`, `TIMEOUT`
+
+#### Deploy (GCP)
 
 ```bash
-# Set environment
-export GOOGLE_API_KEY="your-key"
-
-# Deploy
 make deploy-gcp
-
-# Or manual
+# or
 cd cloud_functions/gcp
 ./deploy.sh
 ```
 
-**Environment variables:**
-- `GOOGLE_API_KEY` - Required
-- `GCP_REGION` - Optional (default: us-central1)
+The script copies `gitlab_mr_review/` next to `main.py`, installs `cloud_functions/gcp/requirements.txt`, and deploys with entry point `gitlab_mr_review_http`. Any detected API keys are passed with `--set-env-vars`.
 
-### 2. AWS Lambda
+### DigitalOcean Functions
 
-```bash
-# Set environment
-export GOOGLE_API_KEY="your-key"
-export AWS_LAMBDA_ROLE_ARN="arn:aws:iam::ACCOUNT:role/ROLE"
+#### Prerequisites (DigitalOcean)
 
-# Deploy
-make deploy-aws
-```
+- `doctl` CLI installed and authenticated (`doctl auth init`)
+- `GOOGLE_API_KEY` exported (Gemini is the default provider packaged for this function)
 
-**Environment variables:**
-- `GOOGLE_API_KEY` - Required
-- `AWS_LAMBDA_ROLE_ARN` - Required
-- `AWS_REGION` - Optional (default: us-east-1)
-
-### 3. DigitalOcean Functions
+#### Deploy (DigitalOcean)
 
 ```bash
-# Authenticate
-doctl auth init
-
-# Set environment
-export GOOGLE_API_KEY="your-key"
-
+make deploy-digitalocean
+# or
+cd cloud_functions/digitalocean
+./deploy.sh
 ```
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
+The script stages a serverless bundle, writes a `.env` for the remote build, and prints the deployed function URL. Use that URL for GitLab webhooks or manual triggers.
 
-## GitLab Webhook Setup
+## Additional resources
 
-1. Deploy to your cloud platform and get the function URL
-2. In GitLab project: **Settings → Webhooks**
-3. Add webhook:
-   - URL: Your cloud function URL
-   - Trigger: "Merge request events"
-   - SSL verification: Enabled
-4. Test webhook
+- `gitlab_mr_review/main.py` – Orchestrates GitLab API calls, comment formatting, and adapter selection.
+- `gitlab_mr_review/ai_models.py` – Central registry for model metadata, pricing, and selection helpers.
+- `scripts/select_model.py` – Interactive model chooser used by `make test-local`.
+- `cloud_functions/*/deploy.sh` – Provider-specific deployment automation.
 
-## Configuration
+## Suggested workflow
 
-### Environment Variables
-
-**Required (AI Provider - at least one):**
-- `GOOGLE_API_KEY` - Google Gemini API key
-- `ANTHROPIC_API_KEY` - Anthropic Claude API key (optional)
-- `OPENAI_API_KEY` - OpenAI API key (optional)
-
-**Required (GitLab):**
-- `GITLAB_TOKEN` - GitLab personal access token with `api` scope
-
-**Optional:**
-- `GITLAB_URL` - Custom GitLab instance URL (default: https://gitlab.com)
-- `AI_MODEL` - AI provider: gemini, claude, openai (default: gemini)
-
-See [.env.example](.env.example) for all configuration options.
-
-### Request Format
-
-```json
-{
-  "gitlab_token": "glpat-xxx",
-  "project_id": "12345",
-  "merge_request_iid": "1",
-  "gitlab_url": "https://gitlab.com",
-  "ai_model": "gemini"
-}
-```
-
-### Response Format
-
-```json
-{
-  "statusCode": 200,
-  "body": {
-    "message": "Review completed successfully",
-    "ai_model": "gemini",
-    "model_name": "gemini-2.5-flash",
-    "files_reviewed": 5,
-    "issues_found": 12,
-    "inline_comments_posted": 12,
-    "metrics": {
-      "duration_seconds": 8.5,
-      "input_tokens": 15420,
-      "output_tokens": 2845,
-      "estimated_cost": 0.0024
-    }
-  }
-}
-```
-
-## Project Structure
-
-```
-gitlab-mr-review/
-├── gitlab_mr_review/        # Main package
-│   ├── main.py             # Core review logic
-│   ├── gitlab_client.py    # GitLab API client
-│   ├── ai_adapters/        # AI provider adapters
-│   └── ...
-├── cloud_functions/        # Cloud deployment configs
-│   ├── gcp/               # Google Cloud Functions
-│   ├── aws/               # AWS Lambda
-│   └── digitalocean/      # DigitalOcean Functions
-├── Makefile               # Development commands
-├── test_local.py          # Local testing script
-├── setup.py               # Package setup
-├── pyproject.toml         # Modern packaging config
-└── requirements.txt       # Dependencies
-```
-
-## Development Workflow
-
-1. **Make changes** to code in `gitlab_mr_review/`
-2. **Format code**: `make format`
-3. **Check quality**: `make check`
-4. **Test locally**: `make test-local`
-5. **Run tests**: `make test` (when tests are added)
-6. **Deploy**: `make deploy`
-
-## Troubleshooting
-
-### Check Environment
-```bash
-make check-env
-```
-
-### Common Issues
-
-**"GOOGLE_API_KEY not set"**
-```bash
-export GOOGLE_API_KEY="your-key"
-```
-
-**"Not authenticated with [platform]"**
-```bash
-# GCP
-gcloud auth login
-
-# AWS
-aws configure
-
-# DigitalOcean
-doctl auth init
-```
-
-**"Module not found"**
-```bash
-make install-dev
-```
-
-## Cost Estimation
-
-**Per review (typical 5-file MR with Gemini 2.5 Flash):**
-- Cloud function: ~$0.0001
-- Gemini API: ~$0.0024
-- **Total: ~$0.0025 per review**
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed pricing.
-
-## Documentation
-
-- [cloud_functions/README.md](cloud_functions/README.md) - Cloud-specific docs
-- [Makefile](Makefile) - All development commands
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make changes and test
-4. Run `make check` to ensure code quality
-5. Submit a pull request
-
-## License
-
-MIT License - See [LICENSE](LICENSE)
-
-## Support
-
-- 📖 [Documentation](DEPLOYMENT.md)
-- 🐛 [Report Issues](https://github.com/yourusername/gitlab-mr-review/issues)
-- 💡 [Feature Requests](https://github.com/yourusername/gitlab-mr-review/issues)
+1. Modify code under `gitlab_mr_review/`.
+2. Run `make check && make test` to keep quality gates green.
+3. Validate the change against a staging MR with `make test-local`.
+4. Commit and open your merge request.
