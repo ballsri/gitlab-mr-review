@@ -1,0 +1,10 @@
+packages:
+  - name: gitlab-mr-review
+    environment:
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    functions:
+      - name: review
+        runtime: python:3.11
+        main: __main__.py

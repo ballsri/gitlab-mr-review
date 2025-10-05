@@ -1,0 +1,17 @@
+include README.md
+include LICENSE
+include requirements.txt
+include requirements-dev.txt
+include .env.example
+include Makefile
+
+recursive-include gitlab_mr_review *.py
+recursive-include cloud_functions *.py *.txt *.yml
+
+exclude test_local.py
+recursive-exclude packages *
+recursive-exclude .venv *
+recursive-exclude __pycache__ *
+recursive-exclude *.pyc
+recursive-exclude *.pyo
+recursive-exclude .git *
