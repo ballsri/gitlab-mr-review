@@ -141,3 +141,7 @@ function.zip
 # Cloud function builds
 cloud_functions/**/node_modules/
 cloud_functions/**/.serverless/
+
+
+# Build artifacts
+*/*/gitlab_mr_review/*

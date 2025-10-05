@@ -5,7 +5,7 @@ set -e  # Exit on error
 
 # Configuration
 FUNCTION_NAME="${FUNCTION_NAME:-gitlab-mr-review}"
-REGION="${GCP_REGION:-us-central1}"
+REGION="${GCP_REGION:-asia-southeast1}"
 RUNTIME="python311"
 ENTRY_POINT="gitlab_mr_review_http"
 MEMORY="${MEMORY:-512MB}"
