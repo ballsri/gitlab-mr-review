@@ -38,11 +38,17 @@ fi
 echo -e "${GREEN}✓${NC} Authenticated with Google Cloud"
 
 # Check for required environment variables
-if [ -z "$GOOGLE_API_KEY" ]; then
-    echo -e "${RED}✗ Error: GOOGLE_API_KEY environment variable is not set${NC}"
+if [ -z "$GOOGLE_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
+    echo -e "${RED}✗ Error: No AI API key found${NC}"
+    echo "Set at least one: GOOGLE_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY"
     exit 1
 fi
-echo -e "${GREEN}✓${NC} GOOGLE_API_KEY is set"
+
+# Show which API keys are set
+echo -e "${YELLOW}API Keys configured:${NC}"
+[ -n "$GOOGLE_API_KEY" ] && echo -e "  ${GREEN}✓${NC} GOOGLE_API_KEY" || echo -e "  ${YELLOW}○${NC} GOOGLE_API_KEY (not set)"
+[ -n "$ANTHROPIC_API_KEY" ] && echo -e "  ${GREEN}✓${NC} ANTHROPIC_API_KEY" || echo -e "  ${YELLOW}○${NC} ANTHROPIC_API_KEY (not set)"
+[ -n "$OPENAI_API_KEY" ] && echo -e "  ${GREEN}✓${NC} OPENAI_API_KEY" || echo -e "  ${YELLOW}○${NC} OPENAI_API_KEY (not set)"
 
 echo ""
 echo -e "${BLUE}Deployment Configuration:${NC}"
@@ -62,6 +68,16 @@ echo -e "${GREEN}✓${NC} Package copied"
 # Deploy
 echo ""
 echo -e "${YELLOW}Deploying to Google Cloud Functions...${NC}"
+
+# Build environment variables string
+ENV_VARS=""
+[ -n "$GOOGLE_API_KEY" ] && ENV_VARS="GOOGLE_API_KEY=$GOOGLE_API_KEY"
+[ -n "$ANTHROPIC_API_KEY" ] && ENV_VARS="$ENV_VARS,ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
+[ -n "$OPENAI_API_KEY" ] && ENV_VARS="$ENV_VARS,OPENAI_API_KEY=$OPENAI_API_KEY"
+
+# Remove leading comma if present
+ENV_VARS="${ENV_VARS#,}"
+
 gcloud functions deploy $FUNCTION_NAME \
     --runtime $RUNTIME \
     --trigger-http \
@@ -70,7 +86,7 @@ gcloud functions deploy $FUNCTION_NAME \
     --region $REGION \
     --memory $MEMORY \
     --timeout $TIMEOUT \
-    --set-env-vars GOOGLE_API_KEY="$GOOGLE_API_KEY" \
+    --set-env-vars "$ENV_VARS" \
     --source . \
     --quiet
 

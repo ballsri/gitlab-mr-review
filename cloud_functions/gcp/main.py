@@ -21,8 +21,8 @@ import json
 import sys
 import os
 
-# Add parent directory to path to import gitlab_mr_review
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# Import gitlab_mr_review from copied package directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from gitlab_mr_review.main import main
 
