@@ -203,12 +203,8 @@ deploy-aws: ## Deploy to AWS Lambda
 	@cd cloud_functions/aws && ./deploy.sh
 	@echo "$(GREEN)✓ Deployed to AWS$(NC)"
 
-deploy-digitalocean: ## Deploy to DigitalOcean Functions
+deploy-do: ## Deploy to DigitalOcean Functions
 	@echo "$(BLUE)Deploying to DigitalOcean Functions...$(NC)"
-	@if [ -z "$$GOOGLE_API_KEY" ]; then \
-		echo "$(RED)Error: GOOGLE_API_KEY not set$(NC)"; \
-		exit 1; \
-	fi
 	@cd cloud_functions/digitalocean && ./deploy.sh
 	@echo "$(GREEN)✓ Deployed to DigitalOcean$(NC)"
 

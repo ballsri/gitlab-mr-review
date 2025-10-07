@@ -7,4 +7,3 @@ packages:
     functions:
       - name: review
         runtime: python:3.11
-        main: __main__.py

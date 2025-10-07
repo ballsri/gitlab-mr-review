@@ -1,39 +1,86 @@
-"""
-DigitalOcean Functions entry point for GitLab MR Review
+"""DigitalOcean Functions entry point for GitLab MR Review."""
 
-Deployment:
-    doctl serverless deploy .
-
-Environment Variables:
-    Set in .env file or DigitalOcean dashboard:
-    - GOOGLE_API_KEY: Google Gemini API key
-    - ANTHROPIC_API_KEY: Anthropic Claude API key (optional)
-    - OPENAI_API_KEY: OpenAI API key (optional)
-"""
+from __future__ import annotations
 
 import json
-import sys
-import os
-
-# Add parent directory to path to import gitlab_mr_review
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from gitlab_mr_review.main import main
+import site
+from pathlib import Path
 
 
-def main_handler(args):
+def _bootstrap_site_packages() -> None:
+    """Add the packaged virtualenv site-packages directory to sys.path."""
+    base_dir = Path(__file__).parent
+    site_root = base_dir / "virtualenv" / "lib"
+    if not site_root.exists():
+        return
+
+    for child in site_root.iterdir():
+        if child.is_dir() and child.name.startswith("python"):
+            site_packages = child / "site-packages"
+            if site_packages.exists():
+                site.addsitedir(site_packages.as_posix())
+
+
+_bootstrap_site_packages()
+
+# Import gitlab_mr_review from same directory
+from gitlab_mr_review.main import main as gitlab_main
+
+
+def _parse_event(event: dict | None) -> dict:
+    """Normalize an incoming DigitalOcean event into the payload dict."""
+    if not isinstance(event, dict):
+        return {}
+
+    payload: dict = {}
+
+    # Include query parameters if they exist
+    if isinstance(event.get("query"), dict):
+        payload.update(event["query"])
+
+    http_section = event.get("http")
+    if isinstance(http_section, dict):
+        if isinstance(http_section.get("query"), dict):
+            payload.update(http_section["query"])
+
+    def _merge_body(body_value):
+        if isinstance(body_value, str):
+            try:
+                payload.update(json.loads(body_value))
+            except json.JSONDecodeError:
+                pass
+        elif isinstance(body_value, dict):
+            payload.update(body_value)
+
+    _merge_body(event.get("body"))
+
+    if isinstance(http_section, dict):
+        _merge_body(http_section.get("body"))
+
+    if payload:
+        return payload
+
+    # Fall back to event if it already matches the expected payload shape
+    if any(key in event for key in ("gitlab_token", "project_id", "merge_request_iid")):
+        return event
+
+    return {}
+
+
+def main_handler(event: dict | None, context=None):
     """
     DigitalOcean Functions main handler
 
     Args:
-        args: Dictionary containing request parameters
+        event: DigitalOcean Functions event payload
 
     Returns:
         Dict with statusCode and body
     """
     try:
         # Call main function
-        result = main(args)
+        payload = _parse_event(event)
+        result = gitlab_main(payload)
 
         return result
 
@@ -46,15 +93,6 @@ def main_handler(args):
         }
 
 
-# DigitalOcean Functions entry point
-def main(args):
-    """
-    DigitalOcean Functions entry point wrapper
-
-    Args:
-        args: Request arguments
-
-    Returns:
-        Response dictionary
-    """
-    return main_handler(args)
+def main(event=None, context=None):
+    """DigitalOcean Functions entry point expected by the runtime."""
+    return main_handler(event, context)

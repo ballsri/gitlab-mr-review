@@ -1,0 +1,13 @@
+[
+  {
+    "apihost": "https://faas-sgp1-18bc02ac.doserverless.co",
+    "namespace": "fn-f1e5d213-70c3-48d3-b3ac-2b0c31f628d1",
+    "packageVersions": {},
+    "actionVersions": {
+      "gitlab-mr-review/review": {
+        "digest": "44b1aedef52b5a4030dca8c7d570d1c14a797e46fe5e897a13f3d3541556a9b5",
+        "version": "0.0.9"
+      }
+    }
+  }
+]
