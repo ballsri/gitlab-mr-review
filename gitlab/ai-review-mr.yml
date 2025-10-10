@@ -13,25 +13,6 @@
         exit 0
       fi
       
-      # Check if this is the first pipeline for this MR
-      # GitLab provides CI_PIPELINE_IID which increments per MR
-      echo "🔍 Checking MR pipeline history..."
-      
-      PIPELINE_COUNT=$(curl -s --header "PRIVATE-TOKEN: ${AI_REVIEWER_GITLAB_API_TOKEN}" \
-        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/pipelines?per_page=100" \
-        | grep -o '"id":' | wc -l)
-      
-      echo "Pipeline count for MR !${CI_MERGE_REQUEST_IID}: $PIPELINE_COUNT"
-      
-      # Only run on first pipeline (when MR opened)
-      if [ "$PIPELINE_COUNT" -ne 1 ]; then
-        echo "⏭️  Not the first pipeline (count: $PIPELINE_COUNT), skipping review"
-        exit 0
-      fi
-      
-      echo "✅ First pipeline detected - MR was just opened"
-      echo ""
-      
       # Validate environment
       [ -z "$AI_REVIEWER_GITLAB_API_TOKEN" ] && echo "❌ Missing AI_REVIEWER_GITLAB_API_TOKEN" && exit 1
       [ -z "$AI_REVIEW_FUNCTION_API_URL" ] && echo "❌ Missing AI_REVIEW_FUNCTION_API_URL" && exit 1
