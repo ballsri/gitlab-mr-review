@@ -40,17 +40,22 @@
       
       # Parse response
       if [ "$HTTP_CODE" = "200" ]; then
-        echo "✅ Review completed"
+        echo "✅ Review completed synchronously"
         echo "$BODY"
-        
+
         # Extract metrics
         FILES=$(echo "$BODY" | grep -o '"files_reviewed":[0-9]*' | cut -d':' -f2)
         ISSUES=$(echo "$BODY" | grep -o '"issues_found":[0-9]*' | cut -d':' -f2)
         TOKENS=$(echo "$BODY" | grep -o '"total":[0-9]*' | head -1 | cut -d':' -f2)
         COST=$(echo "$BODY" | grep -o '"total_cost_usd":[0-9.]*' | cut -d':' -f2)
-        
+
         echo "📊 Files: $FILES | Issues: $ISSUES | Tokens: $TOKENS | Cost: \$$COST"
         echo "👀 View: ${CI_SERVER_URL}/${CI_PROJECT_PATH}/-/merge_requests/${CI_MERGE_REQUEST_IID}"
+      elif [ "$HTTP_CODE" = "202" ]; then
+        echo "✅ Review accepted - processing asynchronously"
+        echo "$BODY"
+        echo "👀 The AI review will be posted to: ${CI_SERVER_URL}/${CI_PROJECT_PATH}/-/merge_requests/${CI_MERGE_REQUEST_IID}"
+        echo "⏱️  Check the merge request for the review results"
       else
         echo "❌ Failed: HTTP $HTTP_CODE"
         echo "$BODY"
